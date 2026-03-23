@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "PropertyDiscovery": {
+      "title": "Property Discovery",
+      "description": "A saved real estate discovery project.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "brief": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "assets": {
+          "type": "array",
+          "items": { "$ref": "Asset" }
+        }
+      },
+      "required": ["id", "brief", "userId", "createdAt"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "An asset associated with a discovery project.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["image", "floorplan"] },
+        "url": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "url", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "PropertyDiscovery" },
+      "description": "Property discovery collection scoped to the user."
+    }
+  }
+}

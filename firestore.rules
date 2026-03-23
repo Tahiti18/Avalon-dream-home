@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}/projects/{projectId}
+    // Document ID: projectId (string)
+    // Fields:
+    //   - id: string (required) - Unique project ID
+    //   - brief: string (required) - The project discovery brief
+    //   - userId: string (required) - Owner's UID
+    //   - createdAt: timestamp (required) - Creation time
+    //   - assets: list (optional) - Array of asset objects {type, url, createdAt}
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "nawram2208@gmail.com" && request.auth.token.email_verified == true));
+    }
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) ||
+        request.resource.data.userId == request.auth.uid;
+    }
+    function uidNotModified() {
+      return !('userId' in request.resource.data) ||
+        request.resource.data.userId == resource.data.userId;
+    }
+
+    // Domain Validators
+    function isValidProject(data) {
+      return hasRequiredFields(['id', 'brief', 'userId', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'brief', 'userId', 'createdAt', 'assets']) &&
+             data.userId == request.auth.uid &&
+             data.brief is string && data.brief.size() < 10000 &&
+             data.id is string && data.id.size() < 100 &&
+             data.createdAt is timestamp &&
+             (!('assets' in data) || data.assets is list);
+    }
+
+    match /users/{userId}/projects/{projectId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidProject(request.resource.data) && uidUnchanged();
+      allow update: if isOwner(userId) && isValidProject(request.resource.data) && uidNotModified();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+  }
+}
